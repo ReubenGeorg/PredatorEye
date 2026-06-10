@@ -1,9 +1,9 @@
 """
-Central configuration for AttackPath predictor.
+Central configuration for PredatorEye.
 """
 
 TOOL_VERSION = "1.0.0"
-TOOL_NAME = "AttackPath - System Attack Path Predictor"
+TOOL_NAME = "PredatorEye - System Attack Path Predictor"
 
 # Severity levels and their numeric scores
 SEVERITY_SCORES = {

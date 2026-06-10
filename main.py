@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-AttackPath — System Attack Path Predictor
+PredatorEye — System Attack Path Predictor
 Scans the local system, predicts attacker paths, and generates a remediation report.
 
 Usage:
@@ -203,12 +203,12 @@ def main():
     outputs = []
 
     if not args.no_html:
-        html_path = os.path.join(out_dir, f"attackpath_{hostname}_{timestamp}.html")
+        html_path = os.path.join(out_dir, f"predatoreye_{hostname}_{timestamp}.html")
         HTMLReporter(prediction, findings, recommendations, scan_results).write(html_path)
         outputs.append(("HTML Report", html_path))
 
     if not args.no_json:
-        json_path = os.path.join(out_dir, f"attackpath_{hostname}_{timestamp}.json")
+        json_path = os.path.join(out_dir, f"predatoreye_{hostname}_{timestamp}.json")
         JSONReporter(prediction, findings, recommendations, scan_results).write(json_path)
         outputs.append(("JSON Report", json_path))
 
