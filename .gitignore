@@ -27,10 +27,11 @@ env/
 .DS_Store
 Thumbs.db
 
-# Reports (contain sensitive scan data)
+# Reports (contain sensitive scan data — not source files)
 output/
-*.html
-*.json
+web/reports/
+# Exclude generated reports but keep template HTML and source JSON
+*.log
 
 # Logs
 *.log

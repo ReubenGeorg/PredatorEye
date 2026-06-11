@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Report Not Found — PredatorEye{% endblock %}
+{% block content %}
+<div class="container" style="text-align:center;padding-top:5rem">
+  <div style="font-size:4rem;margin-bottom:1rem">&#128274;</div>
+  <h1 style="font-size:2rem;font-weight:900;margin-bottom:.75rem">Report Not Found</h1>
+  <p style="color:#6e7fa3;max-width:420px;margin:0 auto 2rem">
+    This report has expired or does not exist.
+    Reports are automatically deleted after 24 hours to protect your privacy.
+  </p>
+  <a href="/scan" class="btn btn-primary btn-lg">Run a New Scan</a>
+</div>
+{% endblock %}

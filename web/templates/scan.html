@@ -1,0 +1,521 @@
+{% extends "base.html" %}
+{% block title %}{% if desktop_mode %}Scan — PredatorEye{% else %}Scan My Device — PredatorEye{% endif %}{% endblock %}
+
+{% block extra_style %}
+/* ── Shared ── */
+.page-title{font-size:1.8rem;font-weight:900;margin-bottom:.3rem}
+.page-sub{color:#6e7fa3;margin-bottom:1.5rem}
+
+/* ══════════════════════════════════════════════════════
+   DESKTOP MODE
+══════════════════════════════════════════════════════ */
+.desk-wrap{display:grid;grid-template-columns:1fr 1.8fr;gap:2rem;align-items:start;margin-top:1.5rem}
+@media(max-width:850px){.desk-wrap{grid-template-columns:1fr}}
+
+/* System info card */
+.sys-card{background:#0d1421;border:1px solid #1e2d45;border-radius:12px;padding:1.3rem}
+.sys-card-title{font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6e7fa3;margin-bottom:.9rem}
+.sys-row{display:flex;justify-content:space-between;padding:.35rem 0;border-bottom:1px solid #1e2d45;font-size:.875rem}
+.sys-row:last-child{border-bottom:none}
+.sys-lbl{color:#6e7fa3}
+.sys-val{font-weight:600;color:#cdd6f4}
+
+/* Scan panel */
+.scan-panel{background:#0d1421;border:2px solid #1e2d45;border-radius:14px;padding:2rem;transition:.2s}
+.scan-panel.scanning{border-color:#e6394660}
+.scan-panel.done{border-color:#00e67660}
+
+.scan-icon-wrap{text-align:center;margin-bottom:1.5rem}
+.scan-icon{font-size:3.5rem;display:block;margin-bottom:.5rem}
+.scan-title{font-size:1.3rem;font-weight:900;margin-bottom:.3rem}
+.scan-desc{color:#6e7fa3;font-size:.9rem}
+
+/* Options */
+.scan-opts{display:flex;gap:1.5rem;justify-content:center;margin:1.2rem 0;flex-wrap:wrap}
+.opt-label{display:flex;align-items:center;gap:.5rem;cursor:pointer;font-size:.875rem;color:#cdd6f4}
+.opt-label input[type=checkbox]{width:16px;height:16px;accent-color:#e63946;cursor:pointer}
+.opt-label input[type=radio]{width:16px;height:16px;accent-color:#e63946;cursor:pointer}
+
+/* Big scan button */
+.scan-btn{display:block;width:100%;padding:1rem;background:#e63946;color:#fff;border:none;border-radius:12px;font-size:1.05rem;font-weight:800;letter-spacing:.3px;cursor:pointer;transition:.15s;position:relative;overflow:hidden}
+.scan-btn:hover:not(:disabled){background:#c0313d;transform:translateY(-1px);box-shadow:0 6px 24px #e6394640}
+.scan-btn:disabled{background:#2a3f5f;color:#6e7fa3;cursor:not-allowed;transform:none;box-shadow:none}
+.scan-btn::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent);transform:translateX(-100%);transition:transform .4s}
+.scan-btn:hover:not(:disabled)::after{transform:translateX(100%)}
+
+/* Progress */
+.prog-wrap{margin-top:1.5rem;display:none}
+.prog-steps{display:flex;justify-content:space-between;margin-bottom:.5rem;font-size:.75rem;color:#6e7fa3}
+.prog-bar-bg{background:#131c2e;border-radius:8px;height:10px;overflow:hidden;position:relative}
+.prog-bar-fill{height:100%;border-radius:8px;background:linear-gradient(90deg,#e63946,#ff8c42);transition:width .4s ease;width:0%}
+.prog-bar-glow{position:absolute;right:0;top:0;height:100%;width:40px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3));animation:glowMove 1.2s infinite}
+@keyframes glowMove{0%{opacity:0}50%{opacity:1}100%{opacity:0}}
+.prog-step-txt{text-align:center;margin-top:.6rem;font-size:.875rem;color:#cdd6f4;font-weight:600}
+.prog-pct{text-align:right;font-size:.75rem;color:#6e7fa3;margin-top:.2rem}
+
+/* Scanner steps list */
+.steps-list{margin-top:1rem;display:flex;flex-direction:column;gap:.3rem}
+.slist-item{display:flex;align-items:center;gap:.6rem;font-size:.8rem;padding:.3rem .5rem;border-radius:6px;color:#6e7fa3;transition:.2s}
+.slist-item.active{background:#e6394615;color:#cdd6f4}
+.slist-item.done-step{color:#00e676}
+.slist-dot{width:8px;height:8px;border-radius:50%;background:#1e2d45;flex-shrink:0;transition:.2s}
+.slist-item.active .slist-dot{background:#e63946;box-shadow:0 0 6px #e63946}
+.slist-item.done-step .slist-dot{background:#00e676}
+
+/* Result card */
+.result-card{display:none;background:#00e67610;border:1px solid #00e67640;border-radius:12px;padding:1.3rem;margin-top:1.2rem;text-align:center}
+.result-card h3{color:#00e676;font-size:1.1rem;margin-bottom:.75rem}
+.result-stats{display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;margin-bottom:1.2rem}
+.rstat{background:#131c2e;border-radius:8px;padding:.5rem .9rem;text-align:center;min-width:80px}
+.rstat-num{font-size:1.3rem;font-weight:900}
+.rstat-lbl{font-size:.72rem;color:#6e7fa3;text-transform:uppercase;letter-spacing:.4px}
+.view-btn{display:inline-block;background:#00e676;color:#080c14;padding:.65rem 2rem;border-radius:10px;font-weight:800;font-size:1rem;cursor:pointer;border:none;text-decoration:none;transition:.15s}
+.view-btn:hover{background:#00cc68;text-decoration:none;color:#080c14}
+
+/* Error */
+.err-card{display:none;background:#e6394610;border:1px solid #e6394640;border-radius:10px;padding:1rem;margin-top:1rem;color:#e63946;font-size:.875rem}
+
+/* ══════════════════════════════════════════════════════
+   SERVER / UPLOAD MODE
+══════════════════════════════════════════════════════ */
+.srv-layout{display:grid;grid-template-columns:1fr 1.6fr;gap:2rem;align-items:start;margin-top:1.5rem}
+@media(max-width:800px){.srv-layout{grid-template-columns:1fr}}
+
+.step-card{background:#0d1421;border:1px solid #1e2d45;border-radius:12px;padding:1.2rem;margin-bottom:1rem}
+.step-card h3{font-size:.95rem;font-weight:700;margin-bottom:.5rem;display:flex;align-items:center;gap:.5rem}
+.step-n{background:#e63946;color:#fff;border-radius:50%;width:22px;height:22px;font-size:.75rem;font-weight:900;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.cmd{background:#080c14;border:1px solid #1e2d45;border-radius:8px;padding:.7rem 1rem;font-family:'Courier New',monospace;font-size:.82rem;color:#79c0ff;position:relative;margin:.5rem 0;word-break:break-all}
+.cbtn{position:absolute;right:.5rem;top:.4rem;background:#1e2d45;border:none;color:#6e7fa3;border-radius:4px;padding:.2rem .5rem;font-size:.72rem;cursor:pointer}
+.cbtn:hover{background:#2a3f5f;color:#cdd6f4}
+
+.drop-zone{background:#0d1421;border:2px dashed #1e2d45;border-radius:14px;padding:2.5rem 2rem;text-align:center;transition:.2s;cursor:pointer}
+.drop-zone.drag{border-color:#e63946;background:#e6394610}
+.drop-zone.has-file{border-style:solid;border-color:#00e676;background:#00e67608}
+.drop-icon{font-size:2.8rem;margin-bottom:.6rem}
+.drop-zone h2{font-size:1rem;font-weight:800;margin-bottom:.3rem}
+.drop-zone p{color:#6e7fa3;font-size:.875rem;margin-bottom:1.2rem}
+#fileInput{display:none}
+.file-lbl{display:inline-block;background:#e63946;color:#fff;padding:.45rem 1.2rem;border-radius:8px;font-weight:700;cursor:pointer;font-size:.875rem}
+.file-lbl:hover{background:#c0313d}
+.file-info{background:#00e67615;border:1px solid #00e67640;border-radius:8px;padding:.5rem .9rem;margin-top:.9rem;color:#00e676;font-size:.85rem;display:none}
+#submitBtn{width:100%;padding:.85rem;background:#e63946;color:#fff;border:none;border-radius:10px;font-size:.95rem;font-weight:700;cursor:pointer;margin-top:1.1rem;transition:.15s;display:none}
+#submitBtn:hover{background:#c0313d}
+#submitBtn:disabled{background:#2a3f5f;color:#6e7fa3;cursor:not-allowed}
+.pbar-wrap{display:none;margin-top:1.2rem}
+.pbar-bg{background:#1e2d45;border-radius:6px;height:8px;overflow:hidden}
+.pbar-fill{height:100%;background:#e63946;border-radius:6px;width:0%;transition:width .4s}
+.pbar-txt{font-size:.83rem;color:#6e7fa3;margin-top:.35rem}
+.up-result{display:none;background:#00e67610;border:1px solid #00e67640;border-radius:10px;padding:1.2rem;margin-top:1.1rem;text-align:left}
+.up-result h3{color:#00e676;margin-bottom:.5rem;font-size:1rem}
+.up-result a.view-link{display:inline-block;background:#00e676;color:#080c14;padding:.45rem 1.1rem;border-radius:8px;font-weight:700;margin-top:.5rem;font-size:.875rem}
+.up-result a.view-link:hover{background:#00cc68;text-decoration:none;color:#080c14}
+.up-err{display:none;background:#e6394610;border:1px solid #e6394640;border-radius:10px;padding:.9rem 1.1rem;margin-top:.9rem;color:#e63946;font-size:.875rem}
+.note-sm{font-size:.77rem;color:#6e7fa3;margin-top:.65rem;text-align:center}
+{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div>
+    <h1 class="page-title">
+      {% if desktop_mode %}Scan This Device{% else %}Scan My Device{% endif %}
+    </h1>
+    <p class="page-sub">
+      {% if desktop_mode %}
+        Runs entirely on your machine — no data is uploaded or stored externally.
+      {% else %}
+        Download the agent, run it on your device, then upload the results below.
+      {% endif %}
+    </p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       DESKTOP MODE
+  ══════════════════════════════════════════════ -->
+  {% if desktop_mode %}
+  <div class="desk-wrap">
+
+    <!-- Left: system info + scan steps -->
+    <div>
+      <div class="sys-card">
+        <div class="sys-card-title">This Device</div>
+        <div class="sys-row"><span class="sys-lbl">Hostname</span><span class="sys-val">{{ sys_hint.hostname }}</span></div>
+        <div class="sys-row"><span class="sys-lbl">OS</span><span class="sys-val">{{ sys_hint.os }}</span></div>
+        <div class="sys-row"><span class="sys-lbl">Scan Type</span><span class="sys-val" id="scanTypeLabel">Full Scan</span></div>
+        <div class="sys-row"><span class="sys-lbl">Est. Time</span><span class="sys-val" id="estTime">~45 seconds</span></div>
+      </div>
+
+      <div class="sys-card" style="margin-top:1rem">
+        <div class="sys-card-title">Scan Steps</div>
+        <div class="steps-list" id="stepsList">
+          <div class="slist-item" data-step="System Info &amp; Users">
+            <div class="slist-dot"></div><span>System Info &amp; Users</span>
+          </div>
+          <div class="slist-item" data-step="Network &amp; Open Ports">
+            <div class="slist-dot"></div><span>Network &amp; Open Ports</span>
+          </div>
+          <div class="slist-item" data-step="Running Processes">
+            <div class="slist-dot"></div><span>Running Processes</span>
+          </div>
+          <div class="slist-item software-step" data-step="Installed Software">
+            <div class="slist-dot"></div><span>Installed Software</span>
+          </div>
+          <div class="slist-item" data-step="Windows Services">
+            <div class="slist-dot"></div><span>Windows Services</span>
+          </div>
+          <div class="slist-item" data-step="Security Settings">
+            <div class="slist-dot"></div><span>Security Settings</span>
+          </div>
+          <div class="slist-item" data-step="Analysing attack paths...">
+            <div class="slist-dot"></div><span>Analysing Attack Paths</span>
+          </div>
+          <div class="slist-item" data-step="Generating report...">
+            <div class="slist-dot"></div><span>Generating Report</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: scan panel -->
+    <div>
+      <div class="scan-panel" id="scanPanel">
+        <div class="scan-icon-wrap">
+          <span class="scan-icon" id="scanIcon">&#128065;</span>
+          <div class="scan-title" id="scanTitle">Ready to Scan</div>
+          <div class="scan-desc" id="scanDesc">Click below to start scanning this device for vulnerabilities and attack paths.</div>
+        </div>
+
+        <!-- Scan options -->
+        <div class="scan-opts">
+          <label class="opt-label">
+            <input type="radio" name="scanMode" value="full" checked onchange="updateMode(this)">
+            Full Scan <span style="color:#6e7fa3;font-size:.8rem">(~45s, recommended)</span>
+          </label>
+          <label class="opt-label">
+            <input type="radio" name="scanMode" value="quick" onchange="updateMode(this)">
+            Quick Scan <span style="color:#6e7fa3;font-size:.8rem">(~20s, skips software)</span>
+          </label>
+        </div>
+
+        <button class="scan-btn" id="scanBtn" onclick="startScan()">
+          &#128065;&nbsp; Start Scan
+        </button>
+
+        <!-- Progress -->
+        <div class="prog-wrap" id="progWrap">
+          <div class="prog-bar-bg">
+            <div class="prog-bar-fill" id="progFill"></div>
+            <div class="prog-bar-glow" id="progGlow"></div>
+          </div>
+          <div class="prog-step-txt" id="progStepTxt">Initializing...</div>
+          <div class="prog-pct" id="progPct">0%</div>
+        </div>
+
+        <!-- Error -->
+        <div class="err-card" id="errCard"></div>
+      </div>
+
+      <!-- Result -->
+      <div class="result-card" id="resultCard">
+        <h3>&#10003;&nbsp; Scan Complete</h3>
+        <div class="result-stats" id="resultStats"></div>
+        <a class="view-btn" id="viewReportBtn" href="#" target="_blank">
+          View Full Report &nbsp;&#8594;
+        </a>
+        <div style="margin-top:.8rem">
+          <button class="scan-btn" style="background:#1e2d45;color:#cdd6f4;margin-top:.5rem;font-size:.875rem" onclick="resetScan()">
+            Run Another Scan
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /desk-wrap -->
+
+  <!-- ══════════════════════════════════════════════
+       SERVER / UPLOAD MODE
+  ══════════════════════════════════════════════ -->
+  {% else %}
+  <div class="srv-layout">
+
+    <!-- Left: instructions -->
+    <div>
+      <div class="step-card">
+        <h3><span class="step-n">1</span> Install Dependencies</h3>
+        <div class="cmd">pip install psutil rich<button class="cbtn" onclick="cp(this,'pip install psutil rich')">copy</button></div>
+      </div>
+
+      <div class="step-card">
+        <h3><span class="step-n">2</span> Download the Agent</h3>
+        <p style="color:#6e7fa3;font-size:.875rem;margin-bottom:.75rem">Download and save this to your device:</p>
+        <a href="/download/agent" class="btn btn-primary" style="display:inline-block;margin-bottom:.75rem">&#8595; predatoreye-agent.py</a>
+      </div>
+
+      <div class="step-card">
+        <h3><span class="step-n">3</span> Run the Scanner</h3>
+        <p style="color:#6e7fa3;font-size:.875rem;margin-bottom:.5rem">Open PowerShell (as Administrator):</p>
+        <div class="cmd">python predatoreye-agent.py<button class="cbtn" onclick="cp(this,'python predatoreye-agent.py')">copy</button></div>
+        <p style="color:#6e7fa3;font-size:.8rem;margin-top:.4rem">Creates <code style="background:#080c14;border:1px solid #1e2d45;border-radius:3px;padding:.05rem .3rem">scan_results.json</code> in the same folder. Takes ~30s.</p>
+      </div>
+
+      <div class="step-card">
+        <h3><span class="step-n">4</span> Upload &amp; Analyse</h3>
+        <p style="color:#6e7fa3;font-size:.875rem">Upload the <code style="background:#080c14;border:1px solid #1e2d45;border-radius:3px;padding:.05rem .3rem">scan_results.json</code> in the panel on the right.</p>
+      </div>
+
+      <div style="background:#e6394610;border:1px solid #e6394630;border-radius:10px;padding:1rem;font-size:.8rem;color:#cdd6f4">
+        <strong style="color:#e63946">Privacy:</strong> Your JSON is processed to generate your report and deleted within 24 hours.
+      </div>
+    </div>
+
+    <!-- Right: upload -->
+    <div>
+      <div class="drop-zone" id="dropZone">
+        <div class="drop-icon">&#128196;</div>
+        <h2>Drop scan_results.json here</h2>
+        <p>or click to browse</p>
+        <label for="fileInput" class="file-lbl">Choose File</label>
+        <input type="file" id="fileInput" accept=".json">
+        <div class="file-info" id="fileInfo"></div>
+      </div>
+
+      <div class="up-err"   id="upErr"></div>
+      <button id="submitBtn" onclick="submitUpload()">Analyse &amp; Generate Report &nbsp;&#8594;</button>
+      <div class="pbar-wrap" id="pbarWrap">
+        <div class="pbar-bg"><div class="pbar-fill" id="pbarFill"></div></div>
+        <div class="pbar-txt" id="pbarTxt">Uploading...</div>
+      </div>
+      <div class="up-result" id="upResult">
+        <h3>&#10003; Report Ready</h3>
+        <div id="upMeta" style="color:#6e7fa3;font-size:.875rem;margin-bottom:.5rem"></div>
+        <a class="view-link" id="upLink" href="#" target="_blank">View Full Report &#8594;</a>
+        <p style="font-size:.75rem;color:#6e7fa3;margin-top:.75rem">Save the link — reports are deleted after 24 hours.</p>
+      </div>
+      <p class="note-sm">Max 5 MB &bull; .json files only</p>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if desktop_mode %}
+<script>
+// ── Desktop scan ─────────────────────────────────────────────────────────────
+let scanning = false;
+let quickMode = false;
+let pollInterval = null;
+
+function updateMode(radio) {
+  quickMode = radio.value === 'quick';
+  document.getElementById('scanTypeLabel').textContent = quickMode ? 'Quick Scan' : 'Full Scan';
+  document.getElementById('estTime').textContent = quickMode ? '~20 seconds' : '~45 seconds';
+  document.querySelector('.software-step').style.opacity = quickMode ? '.3' : '1';
+}
+
+async function startScan() {
+  if (scanning) return;
+  scanning = true;
+
+  // Reset UI
+  document.getElementById('scanBtn').disabled = true;
+  document.getElementById('scanBtn').textContent = 'Scanning...';
+  document.getElementById('scanPanel').classList.add('scanning');
+  document.getElementById('scanIcon').textContent = '🔍';
+  document.getElementById('scanTitle').textContent = 'Scanning...';
+  document.getElementById('scanDesc').textContent = 'Analysing your system. This will take about ' + (quickMode ? '20' : '45') + ' seconds.';
+  document.getElementById('progWrap').style.display = 'block';
+  document.getElementById('resultCard').style.display = 'none';
+  document.getElementById('errCard').style.display = 'none';
+  resetStepList();
+
+  // Start the scan
+  try {
+    const res = await fetch('/api/scan/local', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({quick: quickMode}),
+    });
+    const data = await res.json();
+    if (!res.ok) { showScanError(data.error); return; }
+  } catch(e) { showScanError('Failed to start scan: ' + e); return; }
+
+  // Poll for progress
+  pollInterval = setInterval(pollStatus, 500);
+}
+
+async function pollStatus() {
+  try {
+    const res  = await fetch('/api/scan/status');
+    const data = await res.json();
+
+    updateProgress(data.progress || 0, data.step || '');
+    updateStepList(data.step || '');
+
+    if (data.error) {
+      clearInterval(pollInterval);
+      showScanError(data.error);
+      return;
+    }
+
+    if (data.done && data.report_id) {
+      clearInterval(pollInterval);
+      showResult(data.report_id, data.prediction || {});
+    }
+
+  } catch(e) {
+    clearInterval(pollInterval);
+    showScanError('Lost connection to scanner: ' + e);
+  }
+}
+
+function updateProgress(pct, step) {
+  document.getElementById('progFill').style.width = pct + '%';
+  document.getElementById('progStepTxt').textContent = step || 'Working...';
+  document.getElementById('progPct').textContent = pct + '%';
+}
+
+function updateStepList(currentStep) {
+  const items = document.querySelectorAll('.slist-item');
+  let passed = false;
+  items.forEach(item => {
+    const name = item.dataset.step;
+    item.classList.remove('active', 'done-step');
+    if (name === currentStep) {
+      item.classList.add('active');
+      passed = true;
+    } else if (!passed) {
+      item.classList.add('done-step');
+    }
+  });
+}
+
+function resetStepList() {
+  document.querySelectorAll('.slist-item').forEach(i => i.classList.remove('active','done-step'));
+}
+
+function showResult(reportId, pred) {
+  scanning = false;
+  document.getElementById('scanPanel').style.display = 'none';
+  document.getElementById('scanPanel').classList.remove('scanning');
+
+  const card = document.getElementById('resultCard');
+  card.style.display = 'block';
+
+  const rl     = pred.risk_level    || 'Unknown';
+  const score  = pred.overall_score || 0;
+  const total  = pred.total_findings || 0;
+  const paths  = pred.total_attack_paths || 0;
+  const crits  = pred.critical_count || 0;
+
+  const lvlColor = {Critical:'#e63946',High:'#ff8c42',Medium:'#ffd166',Low:'#00e676',Minimal:'#00e676'}[rl] || '#cdd6f4';
+
+  document.getElementById('resultStats').innerHTML =
+    `<div class="rstat"><div class="rstat-num" style="color:${lvlColor}">${score}</div><div class="rstat-lbl">Risk Score</div></div>` +
+    `<div class="rstat"><div class="rstat-num" style="color:${lvlColor}">${rl}</div><div class="rstat-lbl">Level</div></div>` +
+    `<div class="rstat"><div class="rstat-num">${total}</div><div class="rstat-lbl">Findings</div></div>` +
+    `<div class="rstat"><div class="rstat-num">${paths}</div><div class="rstat-lbl">Attack Paths</div></div>` +
+    (crits > 0 ? `<div class="rstat"><div class="rstat-num" style="color:#e63946">${crits}</div><div class="rstat-lbl">Critical</div></div>` : '');
+
+  document.getElementById('viewReportBtn').href = '/report/' + reportId;
+}
+
+function showScanError(msg) {
+  scanning = false;
+  document.getElementById('scanBtn').disabled = false;
+  document.getElementById('scanBtn').textContent = '🔍  Retry Scan';
+  document.getElementById('progWrap').style.display = 'none';
+  document.getElementById('scanPanel').classList.remove('scanning');
+  const el = document.getElementById('errCard');
+  el.style.display = 'block';
+  el.textContent = '⚠  ' + msg;
+}
+
+function resetScan() {
+  document.getElementById('resultCard').style.display = 'none';
+  document.getElementById('scanPanel').style.display  = 'block';
+  document.getElementById('scanPanel').classList.remove('done');
+  document.getElementById('scanBtn').disabled = false;
+  document.getElementById('scanBtn').textContent = '👁  Start Scan';
+  document.getElementById('scanIcon').textContent = '👁';
+  document.getElementById('scanTitle').textContent = 'Ready to Scan';
+  document.getElementById('scanDesc').textContent = 'Click below to start scanning this device for vulnerabilities and attack paths.';
+  document.getElementById('progWrap').style.display = 'none';
+  updateProgress(0, '');
+  resetStepList();
+  scanning = false;
+}
+</script>
+
+{% else %}
+<script>
+// ── Upload mode ───────────────────────────────────────────────────────────────
+const dz = document.getElementById('dropZone');
+const fi = document.getElementById('fileInput');
+let sf = null;
+
+dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('drag'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag'); if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]); });
+dz.addEventListener('click', e => { if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'LABEL') fi.click(); });
+fi.addEventListener('change', () => { if (fi.files[0]) setFile(fi.files[0]); });
+
+function setFile(f) {
+  if (!f.name.endsWith('.json')) { showUpErr('Only .json files are accepted.'); return; }
+  sf = f;
+  const info = document.getElementById('fileInfo');
+  info.style.display = 'block';
+  info.textContent = `Selected: ${f.name}  (${(f.size/1024).toFixed(1)} KB)`;
+  document.getElementById('submitBtn').style.display = 'block';
+  dz.classList.add('has-file');
+  document.getElementById('upErr').style.display = 'none';
+}
+
+async function submitUpload() {
+  if (!sf) return;
+  document.getElementById('submitBtn').disabled = true;
+  document.getElementById('submitBtn').textContent = 'Analysing...';
+  document.getElementById('pbarWrap').style.display = 'block';
+  document.getElementById('upResult').style.display = 'none';
+  document.getElementById('upErr').style.display = 'none';
+
+  let prog = 10;
+  const tick = setInterval(() => {
+    prog = Math.min(prog + (88 - prog) * 0.07, 87);
+    document.getElementById('pbarFill').style.width = prog + '%';
+    document.getElementById('pbarTxt').textContent = prog < 40 ? 'Uploading...' : prog < 70 ? 'Running analysis...' : 'Generating report...';
+  }, 200);
+
+  const form = new FormData();
+  form.append('file', sf);
+
+  try {
+    const res  = await fetch('/api/analyze', {method:'POST', body:form});
+    const data = await res.json();
+    clearInterval(tick);
+
+    if (!res.ok) { showUpErr(data.error || 'Analysis failed.'); document.getElementById('pbarWrap').style.display='none'; document.getElementById('submitBtn').disabled=false; document.getElementById('submitBtn').textContent='Analyse & Generate Report →'; return; }
+
+    document.getElementById('pbarFill').style.width = '100%';
+    document.getElementById('pbarTxt').textContent  = 'Complete!';
+
+    const cls = {Critical:'bc',High:'bh',Medium:'bm',Low:'bl'}[data.risk_level]||'bl';
+    document.getElementById('upMeta').innerHTML =
+      `Risk: <b>${data.risk_score}/100</b> &bull; <span class="badge ${cls}">${data.risk_level}</span> &bull; ${data.findings} findings`;
+    document.getElementById('upLink').href = data.report_url;
+    document.getElementById('upResult').style.display = 'block';
+
+  } catch(e) { clearInterval(tick); showUpErr('Network error. Please try again.'); document.getElementById('pbarWrap').style.display='none'; document.getElementById('submitBtn').disabled=false; document.getElementById('submitBtn').textContent='Analyse & Generate Report →'; }
+}
+
+function showUpErr(msg) { const el=document.getElementById('upErr'); el.textContent='⚠  '+msg; el.style.display='block'; }
+
+function cp(btn, text) {
+  navigator.clipboard.writeText(text).then(() => {
+    const o = btn.textContent; btn.textContent='copied!';
+    setTimeout(()=>{ btn.textContent=o; }, 1200);
+  });
+}
+</script>
+{% endif %}
+{% endblock %}
