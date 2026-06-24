@@ -4,6 +4,7 @@ from .process_scanner import ProcessScanner
 from .software_scanner import SoftwareScanner
 from .service_scanner import ServiceScanner
 from .security_scanner import SecurityScanner
+from .file_scanner import FileThreatScanner, SCAN_LOCATIONS
 
 __all__ = [
     "SystemScanner",
@@ -12,4 +13,6 @@ __all__ = [
     "SoftwareScanner",
     "ServiceScanner",
     "SecurityScanner",
+    "FileThreatScanner",
+    "SCAN_LOCATIONS",
 ]

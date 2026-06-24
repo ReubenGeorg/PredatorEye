@@ -55,6 +55,18 @@ _scan_state = {
     "prediction": None,
 }
 
+# ── File threat scan state ────────────────────────────────────────────────────
+_file_scan_lock  = threading.Lock()
+_file_scan_state = {
+    "running":  False,
+    "scanned":  0,
+    "total":    0,
+    "current":  "",
+    "done":     False,
+    "error":    None,
+    "results":  None,
+}
+
 
 # ── Background cleanup (server mode only) ────────────────────────────────────
 def _cleanup_loop():
@@ -248,6 +260,99 @@ def download_agent():
         os.path.dirname(agent_src), "agent.py",
         as_attachment=True, download_name="predatoreye-agent.py",
     )
+
+
+@app.route("/api/save-agent", methods=["POST"])
+def save_agent():
+    """Desktop mode: copy agent.py to the user's Downloads folder."""
+    if not DESKTOP_MODE:
+        return jsonify({"error": "Only available in desktop mode."}), 400
+    import shutil
+    agent_src = os.path.join(_BASE, "agent.py")
+    if not os.path.exists(agent_src):
+        return jsonify({"error": "agent.py not found in application bundle."}), 404
+    downloads = os.path.expanduser("~/Downloads")
+    os.makedirs(downloads, exist_ok=True)
+    dest = os.path.join(downloads, "predatoreye-agent.py")
+    shutil.copy2(agent_src, dest)
+    return jsonify({"status": "saved", "path": dest})
+
+
+# ── File Threat Scanner ───────────────────────────────────────────────────────
+
+@app.route("/file-scan")
+def file_scan_page():
+    if not DESKTOP_MODE:
+        abort(403)
+    from scanners import SCAN_LOCATIONS
+    locations = {k: v for k, v in SCAN_LOCATIONS.items() if v and os.path.isdir(v)}
+    return render_template("file_scan.html", desktop_mode=DESKTOP_MODE, locations=locations)
+
+
+def _run_file_scan(selected_paths: list) -> None:
+    global _file_scan_state
+    from scanners import FileThreatScanner
+
+    with _file_scan_lock:
+        _file_scan_state = {
+            "running": True, "scanned": 0, "total": 0,
+            "current": "Collecting files...", "done": False,
+            "error": None, "results": None,
+        }
+
+    try:
+        scanner = FileThreatScanner(locations=selected_paths)
+
+        def _sync_progress():
+            while _file_scan_state["running"]:
+                with _file_scan_lock:
+                    _file_scan_state["scanned"] = scanner.progress["scanned"]
+                    _file_scan_state["total"]   = scanner.progress["total"]
+                    _file_scan_state["current"] = scanner.progress["current"]
+                time.sleep(0.4)
+
+        watcher = threading.Thread(target=_sync_progress, daemon=True)
+        watcher.start()
+
+        results = scanner.scan()
+
+        with _file_scan_lock:
+            _file_scan_state.update({
+                "running": False, "done": True,
+                "results": results,
+                "scanned": results["total_scanned"],
+                "total":   results["total_scanned"],
+                "current": "Complete",
+            })
+
+    except Exception as e:
+        with _file_scan_lock:
+            _file_scan_state.update({"running": False, "error": str(e), "done": False})
+
+
+@app.route("/api/file-scan/start", methods=["POST"])
+def file_scan_start():
+    if not DESKTOP_MODE:
+        return jsonify({"error": "Desktop mode only."}), 403
+
+    if _file_scan_state.get("running"):
+        return jsonify({"error": "Scan already running."}), 409
+
+    from scanners import SCAN_LOCATIONS
+    data     = request.get_json(silent=True) or {}
+    chosen   = data.get("locations", list(SCAN_LOCATIONS.keys()))
+    paths    = [SCAN_LOCATIONS[k] for k in chosen if k in SCAN_LOCATIONS and SCAN_LOCATIONS[k]]
+
+    if not paths:
+        return jsonify({"error": "No valid scan locations selected."}), 400
+
+    threading.Thread(target=_run_file_scan, args=(paths,), daemon=True).start()
+    return jsonify({"status": "started"})
+
+
+@app.route("/api/file-scan/status")
+def file_scan_status():
+    return jsonify(_file_scan_state)
 
 
 # ── Dev server entry ──────────────────────────────────────────────────────────

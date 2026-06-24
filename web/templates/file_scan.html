@@ -1,0 +1,504 @@
+{% extends "base.html" %}
+{% block title %}File Threat Scanner — PredatorEye{% endblock %}
+
+{% block extra_style %}
+<style>
+/* ── Layout ──────────────────────────────────────────────────────────────── */
+.fs-grid{display:grid;grid-template-columns:300px 1fr;gap:1.5rem;align-items:start}
+@media(max-width:800px){.fs-grid{grid-template-columns:1fr}}
+
+/* ── Sidebar ─────────────────────────────────────────────────────────────── */
+.sidebar-card{background:#0d1421;border:1px solid #1e2d45;border-radius:12px;padding:1.4rem}
+.sidebar-card h3{font-size:.9rem;font-weight:700;color:#6e7fa3;text-transform:uppercase;
+  letter-spacing:.6px;margin-bottom:1rem}
+
+.loc-item{display:flex;align-items:flex-start;gap:.75rem;padding:.7rem .8rem;
+  border-radius:8px;cursor:pointer;transition:.15s;margin-bottom:.4rem;
+  border:1px solid transparent}
+.loc-item:hover{background:#13203a}
+.loc-item input[type=checkbox]{accent-color:#e63946;width:16px;height:16px;
+  flex-shrink:0;margin-top:2px;cursor:pointer}
+.loc-item.checked{background:#e6394610;border-color:#e6394630}
+.loc-label{display:flex;flex-direction:column;gap:.2rem}
+.loc-name{font-weight:700;font-size:.9rem;color:#cdd6f4}
+.loc-path{font-size:.75rem;color:#4a5a7a;word-break:break-all;font-family:monospace}
+
+.sel-all{font-size:.8rem;color:#e63946;cursor:pointer;text-decoration:none;
+  display:block;text-align:right;margin-bottom:.5rem}
+.sel-all:hover{text-decoration:underline}
+
+.info-box{background:#13203a;border-radius:8px;padding:.9rem;margin-top:1rem;
+  font-size:.8rem;color:#6e7fa3;line-height:1.6}
+.info-box strong{color:#cdd6f4;display:block;margin-bottom:.3rem}
+
+/* ── Main panel ──────────────────────────────────────────────────────────── */
+.main-card{background:#0d1421;border:1px solid #1e2d45;border-radius:12px;padding:1.6rem}
+.panel-header{display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:1.4rem;flex-wrap:wrap;gap:.8rem}
+.panel-title{font-size:1.2rem;font-weight:900;color:#cdd6f4}
+.panel-title span{color:#e63946}
+
+/* Scan button */
+#btn-scan{padding:.65rem 1.8rem;background:#e63946;color:#fff;border:none;
+  border-radius:9px;font-size:.95rem;font-weight:700;cursor:pointer;
+  transition:.15s;letter-spacing:.3px}
+#btn-scan:hover{background:#c0313d}
+#btn-scan:disabled{background:#3a2a2d;color:#6e7fa3;cursor:not-allowed}
+
+/* ── Idle state ──────────────────────────────────────────────────────────── */
+.idle-box{text-align:center;padding:3rem 1rem;color:#4a5a7a}
+.idle-icon{font-size:4rem;margin-bottom:1rem;opacity:.4}
+.idle-box p{font-size:.95rem;max-width:320px;margin:0 auto}
+
+/* ── Progress panel ──────────────────────────────────────────────────────── */
+.progress-panel{display:none}
+.prog-header{display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:.8rem;font-size:.85rem;color:#6e7fa3}
+.prog-bar-wrap{background:#13203a;border-radius:8px;height:10px;overflow:hidden;
+  margin-bottom:1rem}
+.prog-bar-fill{height:100%;background:linear-gradient(90deg,#e63946,#ff6b7a);
+  border-radius:8px;transition:width .4s ease;width:0%}
+.prog-current{font-size:.8rem;color:#4a5a7a;font-family:monospace;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  padding:.5rem .75rem;background:#080c14;border-radius:6px;
+  border:1px solid #1e2d45}
+.scan-pulse{display:flex;align-items:center;gap:.5rem;margin-bottom:.8rem}
+.pulse-dot{width:10px;height:10px;border-radius:50%;background:#e63946;
+  animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
+
+/* ── Summary cards ───────────────────────────────────────────────────────── */
+.summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.8rem;
+  margin-bottom:1.4rem}
+@media(max-width:600px){.summary-grid{grid-template-columns:repeat(2,1fr)}}
+.sum-card{border-radius:10px;padding:1rem;text-align:center;border:1px solid}
+.sum-card .num{font-size:2rem;font-weight:900;line-height:1}
+.sum-card .lbl{font-size:.75rem;text-transform:uppercase;letter-spacing:.5px;
+  margin-top:.3rem;font-weight:700;opacity:.8}
+.s-mal{background:#e6394612;border-color:#e6394640;color:#e63946}
+.s-lkm{background:#ff8c4212;border-color:#ff8c4240;color:#ff8c42}
+.s-sus{background:#ffd16612;border-color:#ffd16640;color:#ffd166}
+.s-cln{background:#00e67612;border-color:#00e67640;color:#00e676}
+
+/* ── Results table ───────────────────────────────────────────────────────── */
+.results-panel{display:none}
+.tab-bar{display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap}
+.tab-btn{padding:.4rem 1rem;border-radius:7px;font-size:.82rem;font-weight:700;
+  border:1.5px solid #1e2d45;background:transparent;color:#6e7fa3;cursor:pointer;
+  transition:.15s}
+.tab-btn:hover{color:#cdd6f4;border-color:#2a3d5a}
+.tab-btn.active{color:#fff;border-color:transparent}
+.tab-btn.t-mal.active{background:#e63946}
+.tab-btn.t-lkm.active{background:#ff8c42}
+.tab-btn.t-sus.active{background:#b8860b}
+.tab-btn.t-all.active{background:#2a3d5a}
+
+.file-list{display:flex;flex-direction:column;gap:.5rem}
+.file-row{background:#080c14;border:1px solid #1e2d45;border-radius:9px;
+  overflow:hidden;transition:.15s}
+.file-row:hover{border-color:#2a3d5a}
+.file-row-head{display:flex;align-items:center;gap:.75rem;padding:.75rem 1rem;
+  cursor:pointer}
+.risk-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.rd-malicious{background:#e63946}
+.rd-likely_malicious{background:#ff8c42}
+.rd-suspicious{background:#ffd166}
+.rd-clean{background:#00e676}
+.file-name{font-weight:700;font-size:.9rem;color:#cdd6f4;flex:1;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-conf{font-size:.78rem;font-weight:800;padding:.2rem .55rem;border-radius:5px}
+.conf-malicious{background:#e6394620;color:#e63946}
+.conf-likely_malicious{background:#ff8c4220;color:#ff8c42}
+.conf-suspicious{background:#ffd16620;color:#ffd166}
+.conf-clean{background:#00e67620;color:#00e676}
+.file-chevron{color:#4a5a7a;font-size:.75rem;flex-shrink:0;transition:.2s}
+.file-row.open .file-chevron{transform:rotate(180deg)}
+
+.file-detail{display:none;padding:.8rem 1rem 1rem 2.5rem;
+  border-top:1px solid #1e2d45;font-size:.82rem}
+.file-row.open .file-detail{display:block}
+.detail-row{display:flex;gap:.5rem;margin-bottom:.35rem;align-items:flex-start}
+.detail-key{color:#4a5a7a;min-width:120px;flex-shrink:0;font-weight:600}
+.detail-val{color:#cdd6f4;word-break:break-all;font-family:monospace;font-size:.8rem}
+.indicator-pill{display:inline-block;background:#e6394615;color:#e63946;
+  border:1px solid #e6394640;border-radius:5px;padding:.15rem .5rem;
+  font-size:.75rem;margin:.15rem .2rem .15rem 0}
+.indicator-pill.sus{background:#ffd16615;color:#ffd166;border-color:#ffd16640}
+.vt-link{display:inline-flex;align-items:center;gap:.4rem;margin-top:.6rem;
+  font-size:.8rem;color:#00d4ff;text-decoration:none}
+.vt-link:hover{text-decoration:underline}
+
+.no-threats{text-align:center;padding:2.5rem;color:#4a5a7a;font-size:.9rem}
+.no-threats-icon{font-size:3rem;display:block;margin-bottom:.5rem}
+
+/* ── Clean animation ─────────────────────────────────────────────────────── */
+.shield-anim{text-align:center;padding:1.5rem 0}
+.shield-anim svg{animation:shield-pop .5s ease}
+@keyframes shield-pop{0%{transform:scale(.5);opacity:0}70%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top:1.8rem">
+
+  <!-- Page header -->
+  <div style="margin-bottom:1.6rem">
+    <h1 style="font-size:1.7rem;font-weight:900;color:#cdd6f4;margin-bottom:.4rem">
+      File <span style="color:#e63946">Threat</span> Scanner
+    </h1>
+    <p style="color:#6e7fa3;font-size:.9rem">
+      Static multi-layer analysis &mdash; files are <strong style="color:#cdd6f4">never executed</strong>.
+      Each file runs in an isolated thread with a hard timeout.
+    </p>
+  </div>
+
+  <div class="fs-grid">
+
+    <!-- ── Sidebar ─────────────────────────────────────────────────────────── -->
+    <div>
+      <div class="sidebar-card">
+        <h3>Scan Locations</h3>
+        <a class="sel-all" id="sel-all-btn" href="#">Select all</a>
+
+        <div id="loc-list">
+          {% for name, path in locations.items() %}
+          <label class="loc-item" data-loc="{{ name }}">
+            <input type="checkbox" name="loc" value="{{ name }}" checked>
+            <div class="loc-label">
+              <span class="loc-name">{{ name }}</span>
+              <span class="loc-path">{{ path }}</span>
+            </div>
+          </label>
+          {% endfor %}
+        </div>
+
+        <div class="info-box">
+          <strong>How isolation works</strong>
+          Files are opened read-only inside a sandboxed daemon thread.
+          A {{ 12 }}-second timeout kills any analysis that hangs.
+          Six independent signals feed a confidence score — both must agree
+          before a file is flagged malicious.
+        </div>
+      </div>
+
+      <!-- Detection layers legend -->
+      <div class="sidebar-card" style="margin-top:1rem">
+        <h3>Detection Layers</h3>
+        {% set layers = [
+          ("1","Known-bad hash","SHA-256 against threat DB"),
+          ("2","Extension mismatch","PE binary hiding behind .pdf / .docx"),
+          ("3","Entropy analysis","Packed or encrypted content &gt; 7.2 bits"),
+          ("4","PE import cluster","Hostile API calls in import table"),
+          ("5","String patterns","C2 URLs, credential-dump keywords, LOLBins"),
+          ("6","Authenticode","Valid signature reduces score by 25 pts"),
+        ] %}
+        {% for num, name, desc in layers %}
+        <div style="display:flex;gap:.75rem;margin-bottom:.75rem;align-items:flex-start">
+          <div style="width:22px;height:22px;border-radius:50%;background:#e6394620;
+            border:1.5px solid #e6394660;display:flex;align-items:center;
+            justify-content:center;font-size:.7rem;font-weight:900;
+            color:#e63946;flex-shrink:0">{{ num }}</div>
+          <div>
+            <div style="font-size:.83rem;font-weight:700;color:#cdd6f4">{{ name }}</div>
+            <div style="font-size:.75rem;color:#4a5a7a">{{ desc }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- ── Main panel ───────────────────────────────────────────────────────── -->
+    <div class="main-card">
+      <div class="panel-header">
+        <div class="panel-title">Analysis <span>Sandbox</span></div>
+        <button id="btn-scan">&#9656; Start Scan</button>
+      </div>
+
+      <!-- Idle -->
+      <div class="idle-box" id="idle-panel">
+        <div class="idle-icon">&#128737;</div>
+        <p>Select locations on the left then click <strong>Start Scan</strong> to begin static analysis.</p>
+      </div>
+
+      <!-- Progress -->
+      <div class="progress-panel" id="progress-panel">
+        <div class="scan-pulse">
+          <div class="pulse-dot"></div>
+          <span style="font-size:.85rem;color:#6e7fa3">Scanning in isolated threads&hellip;</span>
+        </div>
+        <div class="prog-header">
+          <span id="prog-label">Collecting files&hellip;</span>
+          <span id="prog-count">0 / 0</span>
+        </div>
+        <div class="prog-bar-wrap">
+          <div class="prog-bar-fill" id="prog-bar"></div>
+        </div>
+        <div class="prog-current" id="prog-current">Starting&hellip;</div>
+      </div>
+
+      <!-- Summary cards (shown after scan) -->
+      <div id="summary-grid" class="summary-grid" style="display:none">
+        <div class="sum-card s-mal">
+          <div class="num" id="s-mal">0</div>
+          <div class="lbl">Malicious</div>
+        </div>
+        <div class="sum-card s-lkm">
+          <div class="num" id="s-lkm">0</div>
+          <div class="lbl">Likely Malicious</div>
+        </div>
+        <div class="sum-card s-sus">
+          <div class="num" id="s-sus">0</div>
+          <div class="lbl">Suspicious</div>
+        </div>
+        <div class="sum-card s-cln">
+          <div class="num" id="s-cln">0</div>
+          <div class="lbl">Clean</div>
+        </div>
+      </div>
+
+      <!-- Results -->
+      <div class="results-panel" id="results-panel">
+        <div class="tab-bar" id="tab-bar">
+          <button class="tab-btn t-mal active" data-filter="malicious">Malicious</button>
+          <button class="tab-btn t-lkm" data-filter="likely_malicious">Likely Malicious</button>
+          <button class="tab-btn t-sus" data-filter="suspicious">Suspicious</button>
+          <button class="tab-btn t-all" data-filter="all">All Threats</button>
+        </div>
+        <div class="file-list" id="file-list"></div>
+      </div>
+
+    </div><!-- /main-card -->
+  </div><!-- /fs-grid -->
+</div><!-- /container -->
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  var btn      = document.getElementById('btn-scan');
+  var idleP    = document.getElementById('idle-panel');
+  var progP    = document.getElementById('progress-panel');
+  var progBar  = document.getElementById('prog-bar');
+  var progLbl  = document.getElementById('prog-label');
+  var progCnt  = document.getElementById('prog-count');
+  var progCur  = document.getElementById('prog-current');
+  var sumGrid  = document.getElementById('summary-grid');
+  var resPanel = document.getElementById('results-panel');
+  var fileList = document.getElementById('file-list');
+
+  var _poll    = null;
+  var _allFiles = [];   // merged malicious + likely_malicious + suspicious
+
+  /* ── Select all toggle ─────────────────────────────────────────────────── */
+  var selBtn = document.getElementById('sel-all-btn');
+  var allChecked = true;
+  selBtn.addEventListener('click', function(e){
+    e.preventDefault();
+    allChecked = !allChecked;
+    document.querySelectorAll('input[name=loc]').forEach(function(cb){
+      cb.checked = allChecked;
+      cb.closest('.loc-item').classList.toggle('checked', allChecked);
+    });
+    selBtn.textContent = allChecked ? 'Deselect all' : 'Select all';
+  });
+
+  document.querySelectorAll('input[name=loc]').forEach(function(cb){
+    cb.addEventListener('change', function(){
+      cb.closest('.loc-item').classList.toggle('checked', cb.checked);
+    });
+    if(cb.checked) cb.closest('.loc-item').classList.add('checked');
+  });
+
+  /* ── Start scan ─────────────────────────────────────────────────────────── */
+  btn.addEventListener('click', function(){
+    var chosen = Array.from(document.querySelectorAll('input[name=loc]:checked'))
+                      .map(function(cb){ return cb.value; });
+    if(!chosen.length){ alert('Select at least one location.'); return; }
+
+    btn.disabled = true;
+    idleP.style.display = 'none';
+    progP.style.display = 'block';
+    sumGrid.style.display = 'none';
+    resPanel.style.display = 'none';
+    fileList.innerHTML = '';
+    _allFiles = [];
+
+    fetch('/api/file-scan/start', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({locations: chosen})
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(d.error){ alert(d.error); reset(); return; }
+      _poll = setInterval(pollStatus, 500);
+    })
+    .catch(function(){ alert('Could not start scan.'); reset(); });
+  });
+
+  /* ── Poll ────────────────────────────────────────────────────────────────── */
+  function pollStatus(){
+    fetch('/api/file-scan/status')
+      .then(function(r){ return r.json(); })
+      .then(function(s){
+        if(s.error){ clearInterval(_poll); alert('Scan error: ' + s.error); reset(); return; }
+
+        var pct = s.total > 0 ? Math.round((s.scanned / s.total) * 100) : 0;
+        progBar.style.width = pct + '%';
+        progCnt.textContent = s.scanned + ' / ' + (s.total || '?');
+        progCur.textContent = s.current || 'Working...';
+        progLbl.textContent = s.done ? 'Complete' : 'Scanning...';
+
+        if(s.done){
+          clearInterval(_poll);
+          showResults(s.results);
+        }
+      })
+      .catch(function(){});
+  }
+
+  /* ── Render results ──────────────────────────────────────────────────────── */
+  function showResults(r){
+    progP.style.display = 'none';
+
+    document.getElementById('s-mal').textContent = r.malicious;
+    document.getElementById('s-lkm').textContent = r.likely_malicious;
+    document.getElementById('s-sus').textContent = r.suspicious;
+    document.getElementById('s-cln').textContent = r.clean;
+    sumGrid.style.display = 'grid';
+
+    var mal = r.files.malicious || [];
+    var lkm = r.files.likely_malicious || [];
+    var sus = r.files.suspicious || [];
+    _allFiles = mal.concat(lkm).concat(sus);
+
+    if(_allFiles.length === 0){
+      resPanel.style.display = 'block';
+      fileList.innerHTML = noThreatsHTML(r.total_scanned);
+      btn.disabled = false;
+      return;
+    }
+
+    resPanel.style.display = 'block';
+    renderTab('malicious');
+    btn.disabled = false;
+  }
+
+  function renderTab(filter){
+    var files;
+    if(filter === 'malicious')        files = (_allFiles.filter(function(f){ return f.risk_level==='malicious'; }));
+    else if(filter === 'likely_malicious') files = (_allFiles.filter(function(f){ return f.risk_level==='likely_malicious'; }));
+    else if(filter === 'suspicious')  files = (_allFiles.filter(function(f){ return f.risk_level==='suspicious'; }));
+    else                              files = _allFiles;
+
+    fileList.innerHTML = '';
+    if(!files.length){
+      fileList.innerHTML = '<div class="no-threats"><span class="no-threats-icon">&#10003;</span>No files in this category.</div>';
+      return;
+    }
+    files.forEach(function(f){ fileList.appendChild(buildRow(f)); });
+  }
+
+  /* ── Build file row ──────────────────────────────────────────────────────── */
+  function buildRow(f){
+    var row = document.createElement('div');
+    row.className = 'file-row';
+
+    var confClass = 'conf-' + f.risk_level;
+    var dotClass  = 'rd-'   + f.risk_level;
+
+    var ind = (f.indicators || []).map(function(i){
+      return '<span class="indicator-pill">' + esc(i) + '</span>';
+    }).join('');
+
+    if(!ind) ind = '<span style="color:#4a5a7a;font-size:.8rem">No specific indicators (low confidence)</span>';
+
+    var detStr = (f.details && f.details.dangerous_imports)
+      ? f.details.dangerous_imports.join(', ')
+      : '&mdash;';
+
+    var signed = f.details && f.details.hasOwnProperty('digitally_signed')
+      ? (f.details.digitally_signed
+          ? '<span style="color:#00e676">&#10003; Valid</span>'
+          : '<span style="color:#e63946">&#10007; None</span>')
+      : '&mdash;';
+
+    var entropy = f.details && f.details.entropy ? f.details.entropy : '&mdash;';
+    var ext_mm  = f.details && f.details.extension_mismatch ? 'Yes' : 'No';
+
+    var vtUrl   = 'https://www.virustotal.com/gui/file/' + f.sha256_full;
+
+    row.innerHTML =
+      '<div class="file-row-head">'
+      + '<div class="risk-dot ' + dotClass + '"></div>'
+      + '<div class="file-name" title="' + esc(f.path) + '">' + esc(f.filename) + '</div>'
+      + '<span class="file-conf ' + confClass + '">' + f.confidence + '% confidence</span>'
+      + '<span class="file-chevron">&#9660;</span>'
+      + '</div>'
+      + '<div class="file-detail">'
+      + '<div class="detail-row"><span class="detail-key">Path</span>'
+      + '<span class="detail-val">' + esc(f.path) + '</span></div>'
+      + '<div class="detail-row"><span class="detail-key">Size</span>'
+      + '<span class="detail-val">' + f.size_kb + ' KB</span></div>'
+      + '<div class="detail-row"><span class="detail-key">SHA-256</span>'
+      + '<span class="detail-val">' + esc(f.sha256) + '</span></div>'
+      + '<div class="detail-row"><span class="detail-key">Entropy</span>'
+      + '<span class="detail-val">' + entropy + ' / 8.0</span></div>'
+      + '<div class="detail-row"><span class="detail-key">Signed</span>'
+      + '<span class="detail-val">' + signed + '</span></div>'
+      + '<div class="detail-row"><span class="detail-key">Ext. mismatch</span>'
+      + '<span class="detail-val">' + ext_mm + '</span></div>'
+      + '<div class="detail-row"><span class="detail-key">Hostile imports</span>'
+      + '<span class="detail-val">' + esc(detStr) + '</span></div>'
+      + '<div class="detail-row" style="align-items:flex-start"><span class="detail-key">Indicators</span>'
+      + '<div>' + ind + '</div></div>'
+      + '<a class="vt-link" href="' + vtUrl + '" target="_blank" rel="noopener">'
+      + '&#128269; Check on VirusTotal</a>'
+      + '</div>';
+
+    row.querySelector('.file-row-head').addEventListener('click', function(){
+      row.classList.toggle('open');
+    });
+
+    return row;
+  }
+
+  function noThreatsHTML(total){
+    return '<div class="no-threats">'
+      + '<div class="shield-anim"><svg width="72" height="80" viewBox="0 0 72 80">'
+      + '<path d="M36 4L8 16v22c0 18 12 32 28 38 16-6 28-20 28-38V16z"'
+      + ' fill="none" stroke="#00e676" stroke-width="3" stroke-linejoin="round"/>'
+      + '<path d="M22 38l10 10 18-18" stroke="#00e676" stroke-width="3"'
+      + ' stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></div>'
+      + '<div style="font-size:1.1rem;font-weight:700;color:#00e676;margin-bottom:.4rem">'
+      + 'No threats found</div>'
+      + '<div style="color:#4a5a7a;font-size:.85rem">'
+      + total + ' file' + (total!==1?'s':'') + ' scanned across selected locations.</div>'
+      + '</div>';
+  }
+
+  /* ── Tab switching ───────────────────────────────────────────────────────── */
+  document.querySelectorAll('.tab-btn').forEach(function(tb){
+    tb.addEventListener('click', function(){
+      document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
+      tb.classList.add('active');
+      renderTab(tb.dataset.filter);
+    });
+  });
+
+  /* ── Helpers ─────────────────────────────────────────────────────────────── */
+  function reset(){
+    btn.disabled = false;
+    progP.style.display = 'none';
+    idleP.style.display = 'block';
+  }
+
+  function esc(s){
+    if(!s) return '';
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+})();
+</script>
+{% endblock %}

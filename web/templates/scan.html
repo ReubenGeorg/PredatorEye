@@ -2,6 +2,7 @@
 {% block title %}{% if desktop_mode %}Scan — PredatorEye{% else %}Scan My Device — PredatorEye{% endif %}{% endblock %}
 
 {% block extra_style %}
+<style>
 /* ── Shared ── */
 .page-title{font-size:1.8rem;font-weight:900;margin-bottom:.3rem}
 .page-sub{color:#6e7fa3;margin-bottom:1.5rem}
@@ -111,6 +112,7 @@
 .up-result a.view-link:hover{background:#00cc68;text-decoration:none;color:#080c14}
 .up-err{display:none;background:#e6394610;border:1px solid #e6394640;border-radius:10px;padding:.9rem 1.1rem;margin-top:.9rem;color:#e63946;font-size:.875rem}
 .note-sm{font-size:.77rem;color:#6e7fa3;margin-top:.65rem;text-align:center}
+</style>
 {% endblock %}
 
 {% block content %}
@@ -247,7 +249,7 @@
       <div class="step-card">
         <h3><span class="step-n">2</span> Download the Agent</h3>
         <p style="color:#6e7fa3;font-size:.875rem;margin-bottom:.75rem">Download and save this to your device:</p>
-        <a href="/download/agent" class="btn btn-primary" style="display:inline-block;margin-bottom:.75rem">&#8595; predatoreye-agent.py</a>
+        <button onclick="saveAgent(this)" class="btn btn-primary" style="display:inline-block;margin-bottom:.75rem">&#8595; predatoreye-agent.py</button>
       </div>
 
       <div class="step-card">
@@ -515,6 +517,32 @@ function cp(btn, text) {
     const o = btn.textContent; btn.textContent='copied!';
     setTimeout(()=>{ btn.textContent=o; }, 1200);
   });
+}
+
+function saveAgent(btn) {
+  btn.disabled = true;
+  var orig = btn.innerHTML;
+  btn.textContent = 'Saving…';
+  fetch('/api/save-agent', {method:'POST'})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      btn.disabled = false;
+      btn.innerHTML = orig;
+      if(d.error){ showScanToast('⚠ ' + d.error, true); return; }
+      showScanToast('Saved to: ' + d.path, false);
+    })
+    .catch(function(){ btn.disabled=false; btn.innerHTML=orig; showScanToast('⚠ Could not save agent.', true); });
+}
+function showScanToast(msg, isErr) {
+  var t = document.createElement('div');
+  t.style.cssText='position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);'
+    +'background:#0d1421;border:1px solid '+(isErr?'#e6394650':'#00e67650')
+    +';border-radius:10px;padding:.9rem 1.4rem;color:#cdd6f4;font-size:.9rem;'
+    +'z-index:9999;box-shadow:0 8px 32px #00000080;max-width:480px;text-align:center;'
+    +'animation:toast-in .25s ease';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(function(){ t.remove(); }, 5000);
 }
 </script>
 {% endif %}

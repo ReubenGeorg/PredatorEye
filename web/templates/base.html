@@ -63,7 +63,8 @@ footer{border-top:1px solid #1e2d45;padding:1.5rem;text-align:center;color:#6e7f
       <a href="/">Home</a>
       <a href="/#how">How It Works</a>
       <a href="/#features">Features</a>
-      <a href="/scan" class="btn btn-primary">Scan My Device</a>
+      {% if desktop_mode %}<a href="/file-scan">File Scanner</a>{% endif %}
+      <a href="/scan" class="btn btn-primary">{% if desktop_mode %}Scan My Device{% else %}Upload Scan{% endif %}</a>
     </div>
   </div>
 </nav>

@@ -74,40 +74,64 @@ class SecurityScanner:
         return result
 
     def _antivirus_status(self) -> dict:
-        products = []
+        import json
+
+        result = {
+            "products":             [],   # all registered AV products with status
+            "product_names":        [],   # flat list of names for display
+            "defender_realtime":    "Unknown",
+            "defender_mode":        "Unknown",
+            "third_party_av_active": False,  # True = another AV is actively protecting
+        }
+
         if platform.system() != "Windows":
-            return {"products": products, "defender_realtime": "Unknown"}
+            return result
+
+        # ── Step 1: query ALL registered AV products from Security Center 2 ──
+        # productState bit layout (hex): 0xAABBCC
+        #   BB = 10 → real-time protection ON,  00 → OFF
+        # So (productState >> 12) & 0x0F == 1 means the product is enabled.
         try:
             out = subprocess.check_output(
                 ["powershell", "-NoProfile", "-Command",
-                 "Get-MpComputerStatus | Select-Object AMRunningMode,RealTimeProtectionEnabled,AntivirusEnabled | ConvertTo-Json"],
+                 "Get-CimInstance -Namespace root/SecurityCenter2 "
+                 "-ClassName AntiVirusProduct "
+                 "| Select-Object displayName,productState | ConvertTo-Json"],
                 text=True, stderr=subprocess.DEVNULL, timeout=15
             )
-            import json
-            data = json.loads(out)
-            return {
-                "products": ["Windows Defender"],
-                "defender_realtime": data.get("RealTimeProtectionEnabled", "Unknown"),
-                "defender_av_enabled": data.get("AntivirusEnabled", "Unknown"),
-                "mode": data.get("AMRunningMode", "Unknown"),
-            }
-        except Exception:
-            pass
-        try:
-            out = subprocess.check_output(
-                ["powershell", "-NoProfile", "-Command",
-                 "Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntiVirusProduct | Select-Object displayName,productState | ConvertTo-Json"],
-                text=True, stderr=subprocess.DEVNULL, timeout=15
-            )
-            import json
             data = json.loads(out)
             if isinstance(data, dict):
                 data = [data]
             for item in data:
-                products.append(item.get("displayName", "Unknown"))
+                name    = item.get("displayName", "Unknown")
+                state   = int(item.get("productState", 0))
+                enabled = bool((state >> 12) & 0x0F)
+                result["products"].append({
+                    "name":    name,
+                    "enabled": enabled,
+                    "state":   state,
+                })
+                result["product_names"].append(name)
+                if enabled and "windows defender" not in name.lower():
+                    result["third_party_av_active"] = True
         except Exception:
             pass
-        return {"products": products, "defender_realtime": "Unknown"}
+
+        # ── Step 2: query Defender's own status ───────────────────────────────
+        try:
+            out = subprocess.check_output(
+                ["powershell", "-NoProfile", "-Command",
+                 "Get-MpComputerStatus | Select-Object "
+                 "RealTimeProtectionEnabled,AMRunningMode | ConvertTo-Json"],
+                text=True, stderr=subprocess.DEVNULL, timeout=15
+            )
+            data = json.loads(out)
+            result["defender_realtime"] = data.get("RealTimeProtectionEnabled", "Unknown")
+            result["defender_mode"]     = data.get("AMRunningMode", "Unknown")
+        except Exception:
+            pass
+
+        return result
 
     def _windows_update_status(self) -> dict:
         result = {"last_check": "Unknown", "pending_updates": -1}

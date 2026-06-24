@@ -122,16 +122,37 @@ class RiskScorer:
 
         # Antivirus
         av = sec.get("antivirus", {})
-        if av.get("defender_realtime") is False:
+        third_party_active = av.get("third_party_av_active", False)
+        defender_rt = av.get("defender_realtime")
+
+        if defender_rt is False and not third_party_active:
+            # Defender is off AND no other AV is covering the system — genuine risk
             findings.append(Finding(
                 self._next_id(),
                 "Windows Defender real-time protection is OFF",
-                "Malware can execute without being detected or blocked.",
+                "Malware can execute without being detected or blocked. "
+                "No third-party antivirus was detected as active.",
                 "Defense Evasion",
                 "Critical",
                 av,
             ))
-        if not av.get("products"):
+        elif defender_rt is False and third_party_active:
+            # Defender intentionally disabled because another AV is active — normal
+            names = ", ".join(
+                p["name"] for p in av.get("products", [])
+                if p.get("enabled") and "windows defender" not in p["name"].lower()
+            ) or "third-party antivirus"
+            findings.append(Finding(
+                self._next_id(),
+                f"Windows Defender passive (replaced by {names})",
+                f"Defender is disabled because {names} is the active antivirus. "
+                "This is expected behaviour — ensure the third-party AV is kept updated.",
+                "Defense Evasion",
+                "Low",
+                av,
+            ))
+
+        if not av.get("products") and not third_party_active:
             findings.append(Finding(
                 self._next_id(),
                 "No antivirus product detected",
