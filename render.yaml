@@ -5,7 +5,7 @@ services:
     region: oregon
     plan: free
     buildCommand: pip install -r web/requirements.txt
-    startCommand: cd web && gunicorn app:app --bind 0.0.0.0:$PORT --workers 2
+    startCommand: cd web && python -m gunicorn app:app --bind 0.0.0.0:$PORT --workers 2
     envVars:
       - key: PYTHON_VERSION
         value: "3.11.0"
