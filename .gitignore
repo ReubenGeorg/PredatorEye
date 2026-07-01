@@ -35,3 +35,7 @@ web/reports/
 
 # Logs
 *.log
+
+# Runtime-generated directories (created by protection stack at first run)
+data/
+quarantine/

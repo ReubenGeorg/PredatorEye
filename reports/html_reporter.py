@@ -156,6 +156,46 @@ details pre{background:#080c14;border:1px solid #1e2d45;border-radius:6px;paddin
 .steps code:hover{border-color:#00d4ff}
 .rec-ref{font-size:.75rem;color:#6e7fa3;border-top:1px solid #1e2d45;margin-top:.5rem;padding-top:.5rem}
 
+/* ── Active Threats ── */
+.prot-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin-bottom:1.2rem}
+.pmet{background:#0d1421;border:1px solid #1e2d45;border-radius:10px;padding:1rem;text-align:center}
+.pmet-val{font-size:2rem;font-weight:900;line-height:1;margin-bottom:.2rem}
+.pmet-lbl{font-size:.72rem;color:#6e7fa3;text-transform:uppercase;letter-spacing:.5px}
+.pmet.pm-alert{border-color:#e6394640;background:#e6394608}
+.threat-row{background:#0d1421;border:1px solid #1e2d45;border-radius:8px;padding:.75rem 1rem;margin-bottom:.5rem;border-left:4px solid #e63946}
+.threat-row .tname{font-weight:700;font-size:.9rem}
+.threat-row .tpath{font-size:.78rem;color:#6e7fa3;margin-top:.2rem;word-break:break-all}
+.threat-row .tmeta{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.4rem}
+.proc-row{background:#0d1421;border:1px solid #1e2d45;border-radius:8px;padding:.7rem 1rem;margin-bottom:.5rem;border-left:4px solid #ff8c42}
+.proc-row .pname{font-weight:700;font-size:.9rem}
+.proc-row .pscore{font-weight:900;font-size:.85rem}
+.proc-row .prule{font-size:.75rem;color:#6e7fa3;margin-top:.25rem}
+.pers-row{background:#0d1421;border:1px solid #1e2d45;border-radius:8px;padding:.7rem 1rem;margin-bottom:.5rem;border-left:4px solid #ffd166}
+.pers-row .prloc{font-size:.75rem;color:#6e7fa3}
+.pers-row .prname{font-weight:700}
+.pers-row .prval{font-size:.78rem;color:#cdd6f4;margin-top:.2rem;word-break:break-all}
+.empty-prot{color:#6e7fa3;font-size:.85rem;padding:.5rem 0}
+.baseline-note{background:#ffd16610;border:1px solid #ffd16640;border-radius:8px;padding:.75rem 1rem;color:#ffd166;font-size:.85rem;margin-bottom:.8rem}
+
+/* ── Correlated Findings ── */
+.corr{background:#0d1421;border:1px solid #e6394640;border-left:4px solid #e63946;border-radius:12px;padding:1.2rem;margin-bottom:1rem}
+.corr-hdr{display:flex;align-items:flex-start;gap:.75rem;margin-bottom:.6rem;flex-wrap:wrap}
+.corr-id{font-size:.72rem;color:#6e7fa3;font-family:monospace;margin-top:.1rem}
+.corr-title{font-weight:800;font-size:.95rem;flex:1}
+.corr-desc{color:#6e7fa3;font-size:.85rem;margin-bottom:.75rem;line-height:1.55}
+.corr-amp{background:#e6394610;border:1px solid #e6394630;border-radius:6px;padding:.5rem .75rem;font-size:.8rem;color:#e67f88;margin-bottom:.75rem}
+.corr-amp strong{color:#e63946}
+.corr-rec{background:#00d4ff0a;border:1px solid #00d4ff25;border-radius:6px;padding:.5rem .75rem;font-size:.8rem;color:#6e7fa3}
+.corr-rec strong{color:#00d4ff;display:block;margin-bottom:.3rem}
+.corr-rec ol{padding-left:1.2rem;margin:0}
+.corr-rec ol li{margin-bottom:.2rem}
+.corr-ev{margin-top:.75rem}
+details.ev-det summary{cursor:pointer;color:#6e7fa3;font-size:.78rem;margin-top:.3rem;user-select:none}
+details.ev-det pre{background:#080c14;border:1px solid #1e2d45;border-radius:6px;padding:.6rem;font-size:.75rem;overflow-x:auto;margin-top:.4rem;color:#cdd6f4;white-space:pre-wrap}
+.mitre-chips{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.5rem}
+.mchip{background:#00d4ff10;color:#00d4ff;border:1px solid #00d4ff40;border-radius:5px;padding:.15rem .6rem;font-size:.72rem;font-family:monospace}
+.no-corr{color:#6e7fa3;text-align:center;padding:2rem;background:#0d1421;border:1px solid #1e2d45;border-radius:12px}
+
 /* ── Footer ── */
 footer{border-top:1px solid #1e2d45;padding:1.2rem;text-align:center;color:#6e7fa3;font-size:.8rem;margin-top:2rem}
 
@@ -409,11 +449,21 @@ document.querySelectorAll('.lbar-fill').forEach(function(el) {
 
 # ── Reporter class ────────────────────────────────────────────────────────────
 class HTMLReporter:
-    def __init__(self, prediction, findings, recommendations, scan_results):
-        self.p = prediction
-        self.findings = findings
-        self.recs = recommendations
-        self.scan = scan_results
+    def __init__(
+        self,
+        prediction,
+        findings,
+        recommendations,
+        scan_results,
+        protection_results: dict = None,
+        corr_results:       dict = None,
+    ):
+        self.p          = prediction
+        self.findings   = findings
+        self.recs       = recommendations
+        self.scan       = scan_results
+        self.protection = protection_results or {}
+        self.corr       = corr_results       or {}
 
     def write(self, output_path: str) -> str:
         os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
@@ -462,6 +512,8 @@ class HTMLReporter:
         ap_html  = self._paths_html()
         rec_html = self._recs_html()
         gen_html = "".join(self._gen_rec(r) for r in self.recs.get("general", []))
+        prot_html = self._active_threats_html() if self.protection else ""
+        corr_html = self._correlated_findings_html() if self.corr else ""
 
         n_c  = p.get("critical_count", 0)
         n_h  = p.get("high_count", 0)
@@ -576,6 +628,12 @@ class HTMLReporter:
   <div id="fl">{f_html}</div>
 </section>
 
+<!-- ── Active Threats (only when --protect was used) ── -->
+{f'<section><div class="sh">Active Threats &mdash; Protection Stack</div>{prot_html}</section>' if prot_html else ''}
+
+<!-- ── Correlated Findings (only when --protect was used) ── -->
+{f'<section><div class="sh">Correlated Findings</div>{corr_html}</section>' if corr_html else ''}
+
 <!-- ── Recommendations ── -->
 <section>
   <div class="sh">Prevention &amp; Remediation</div>
@@ -595,6 +653,203 @@ class HTMLReporter:
 <script>{js_data}{_JS_LOGIC}</script>
 </body>
 </html>"""
+
+    # ── Active Threats section ────────────────────────────────────────────────
+    def _active_threats_html(self) -> str:
+        pr   = self.protection
+        sig  = pr.get("signature", {})
+        yara = pr.get("yara", {})
+        beh  = pr.get("behavior", {})
+        pers = pr.get("persistence", {})
+
+        sig_n  = len(sig.get("threats", []))
+        yara_n = yara.get("detections", 0)
+        beh_n  = beh.get("suspicious", 0)
+        pers_n = pers.get("total_changes", 0)
+        pers_base = pers.get("is_baseline_run", False)
+
+        def met(val, label, alert=False):
+            cls   = "pmet pm-alert" if (alert and val) else "pmet"
+            color = "#e63946" if (alert and val) else ("#ffd166" if val else "#00e676")
+            return (f'<div class="{cls}">'
+                    f'<div class="pmet-val" style="color:{color}">{val}</div>'
+                    f'<div class="pmet-lbl">{label}</div></div>')
+
+        metrics = (
+            met(sig_n,  "Signature Matches",    alert=True)
+            + met(yara_n, "YARA Rule Matches",  alert=True)
+            + met(beh_n,  "Suspicious Processes", alert=True)
+            + met("Baseline" if pers_base else pers_n,
+                  "Persistence Changes",        alert=not pers_base)
+        )
+
+        # Signature threat rows
+        sig_rows = ""
+        for t in sig.get("threats", []):
+            sev   = t.get("severity", "High")
+            name  = t.get("threat_name") or "Unknown"
+            path  = t.get("path", "")
+            sha   = t.get("hash_sha256", "")[:16]
+            sig_rows += (
+                f'<div class="threat-row">'
+                f'<div class="fi-hdr"><span class="tname">{self._e(name)}</span>'
+                f'&nbsp;{_badge(sev)}</div>'
+                f'<div class="tpath">{self._e(path)}</div>'
+                f'<div class="tmeta"><span style="font-size:.75rem;color:#6e7fa3">'
+                f'SHA256: {self._e(sha)}…</span></div>'
+                f'</div>'
+            )
+
+        # YARA match rows
+        yara_rows = ""
+        for fm in yara.get("matches", []):
+            for m in fm.get("matches", []):
+                rule = m.get("rule_name", "")
+                sev  = m.get("severity", "High")
+                tech = m.get("meta", {}).get("mitre_technique", "")
+                fpath = fm.get("path", "")
+                yara_rows += (
+                    f'<div class="threat-row" style="border-left-color:#ff8c42">'
+                    f'<div class="fi-hdr"><span class="tname">{self._e(rule)}</span>'
+                    f'&nbsp;{_badge(sev)}</div>'
+                    f'<div class="tpath">{self._e(fpath)}</div>'
+                    f'<div class="tmeta">'
+                    f'<span class="mchip">{self._e(tech)}</span>'
+                    f'</div></div>'
+                )
+
+        # Suspicious process rows (top 10)
+        proc_rows = ""
+        for proc in beh.get("findings", [])[:10]:
+            sev   = proc.get("severity", "Medium")
+            sc    = SEVERITY_COLOR.get(sev, "#888")
+            rules = ", ".join(r.get("rule","") for r in proc.get("triggered_rules", []))
+            proc_rows += (
+                f'<div class="proc-row" style="border-left-color:{sc}">'
+                f'<div class="fi-hdr">'
+                f'<span class="pname">{self._e(proc.get("name",""))}</span>'
+                f'&nbsp;<span style="color:#6e7fa3;font-size:.78rem">pid {proc.get("pid","")}</span>'
+                f'&nbsp;{_badge(sev)}'
+                f'<span class="pscore" style="color:{sc};margin-left:.5rem">Score {proc.get("score",0)}</span>'
+                f'</div>'
+                f'<div class="prule">{self._e(rules[:120])}</div>'
+                f'</div>'
+            )
+
+        # Persistence change rows
+        pers_rows = ""
+        if pers_base:
+            pers_rows = '<div class="baseline-note">Persistence baseline created on this scan. Re-run with <b>--protect</b> to detect future changes.</div>'
+        else:
+            changes = pers.get("changes", {})
+            for item in changes.get("registry", {}).get("added", []):
+                pers_rows += (
+                    f'<div class="pers-row">'
+                    f'<div class="prloc">{self._e(item.get("location",""))} — New Run Key</div>'
+                    f'<div class="prname">{self._e(item.get("name",""))}'
+                    f'&nbsp;{_badge(item.get("severity","Medium"))}</div>'
+                    f'<div class="prval">{self._e(str(item.get("value",""))[:120])}</div>'
+                    f'</div>'
+                )
+            for item in changes.get("startup", {}).get("added", []):
+                pers_rows += (
+                    f'<div class="pers-row" style="border-left-color:#00d4ff">'
+                    f'<div class="prloc">{self._e(item.get("location",""))} — New Startup File</div>'
+                    f'<div class="prname">{self._e(item.get("filename",""))}'
+                    f'&nbsp;{_badge(item.get("severity","Medium"))}</div>'
+                    f'<div class="prval">{self._e(item.get("path","")[:120])}</div>'
+                    f'</div>'
+                )
+            for item in changes.get("tasks", {}).get("added", []):
+                pers_rows += (
+                    f'<div class="pers-row" style="border-left-color:#ffd166">'
+                    f'<div class="prloc">Scheduled Task — New Entry</div>'
+                    f'<div class="prname">{self._e(item.get("taskname",""))}'
+                    f'&nbsp;{_badge(item.get("severity","Medium"))}</div>'
+                    f'<div class="prval">{self._e(str(item.get("task_to_run",""))[:120])}</div>'
+                    f'</div>'
+                )
+            if not pers_rows:
+                pers_rows = '<div class="empty-prot">No persistence changes detected since baseline.</div>'
+
+        def _sub(title, body):
+            return f'<div class="sub-sh" style="margin:1rem 0 .5rem">{title}</div>{body}'
+
+        return (
+            f'<div class="prot-grid">{metrics}</div>'
+            + (_sub("Signature Detections", sig_rows or '<div class="empty-prot">No hash matches.</div>'))
+            + (_sub("YARA Rule Matches", yara_rows or '<div class="empty-prot">No YARA matches.</div>'))
+            + (_sub("Suspicious Processes", proc_rows or '<div class="empty-prot">No suspicious processes detected.</div>'))
+            + (_sub("Persistence Changes", pers_rows))
+        )
+
+    # ── Correlated Findings section ───────────────────────────────────────────
+    def _correlated_findings_html(self) -> str:
+        findings = self.corr.get("correlated_findings", [])
+        summary  = self.corr.get("correlation_summary", "")
+        rules_n  = self.corr.get("rules_evaluated", 0)
+
+        header = (
+            f'<div style="margin-bottom:1rem;color:#6e7fa3;font-size:.85rem">'
+            f'{rules_n} correlation rules evaluated &bull; {self._e(summary)}'
+            f'</div>'
+        )
+
+        if not findings:
+            return (
+                header
+                + '<div class="no-corr">No correlations found — VA findings and active detections '
+                + 'do not overlap at this time. This is a good sign.</div>'
+            )
+
+        parts = [header]
+        for cf in findings:
+            cid    = cf.get("correlation_id", "")
+            title  = cf.get("title", "")
+            desc   = cf.get("description", "")
+            sev    = cf.get("severity", "Critical")
+            amp    = cf.get("risk_amplification", "")
+            rec    = cf.get("recommendation", "")
+            techs  = cf.get("mitre_techniques", [])
+            tactic = cf.get("mitre_tactic", "")
+
+            tech_chips = "".join(f'<span class="mchip">{self._e(t)}</span>' for t in techs)
+            if tactic:
+                tech_chips += f'<span class="mchip" style="color:#ffd166;border-color:#ffd16640">{self._e(tactic)}</span>'
+
+            # Evidence accordion
+            ev = cf.get("evidence", {})
+            va_count   = len(ev.get("va_findings", []))
+            det_count  = len(ev.get("active_detections", []))
+            import json as _json
+            ev_json = _json.dumps(ev, indent=2, default=str)
+            ev_html = (
+                f'<div class="corr-ev">'
+                f'<details class="ev-det"><summary>'
+                f'Evidence: {va_count} VA finding(s) + {det_count} active detection(s) — click to expand'
+                f'</summary><pre>{self._e(ev_json)}</pre></details>'
+                f'</div>'
+            )
+
+            # Recommendation as ordered list
+            rec_steps = [s.strip() for s in rec.split("\n") if s.strip()]
+            rec_items = "".join(f"<li>{self._e(s.lstrip('1234567890. '))}</li>" for s in rec_steps)
+
+            parts.append(f"""
+<div class="corr">
+  <div class="corr-hdr">
+    <span class="corr-id">{self._e(cid)}</span>
+    {_badge(sev)}
+    <span class="corr-title">{self._e(title)}</span>
+  </div>
+  <div class="corr-desc">{self._e(desc)}</div>
+  <div class="mitre-chips">{tech_chips}</div>
+  <div class="corr-amp" style="margin-top:.6rem"><strong>Why this is worse combined:</strong> {self._e(amp)}</div>
+  <div class="corr-rec"><strong>Recommended Actions</strong><ol>{rec_items}</ol></div>
+  {ev_html}
+</div>""")
+
+        return "\n".join(parts)
 
     # ── Attack Path Flow ──────────────────────────────────────────────────────
     def _paths_html(self) -> str:

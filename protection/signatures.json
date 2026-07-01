@@ -1,0 +1,34 @@
+{
+  "_comment": "PredatorEye local signature database. Populate from public hash feeds: MalwareBazaar (bazaar.abuse.ch), CIRCL MISP, VirusShare. This engine never fetches hashes automatically.",
+  "version": "1.0",
+  "updated": "2026-07-01",
+  "entries": [
+    {
+      "sha256": "275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f",
+      "md5":    "44d88612fea8a8f36de82e1278abb02f",
+      "name":   "EICAR-Test-File",
+      "family": "TestFile",
+      "severity": "Info",
+      "source": "https://www.eicar.org/download-anti-malware-testfile/",
+      "note":   "Industry-standard AV test string. Safe to detect. Used for engine validation only."
+    },
+    {
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "md5":    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "name":   "DUMMY-Sample-A",
+      "family": "DummyFamily",
+      "severity": "Critical",
+      "source": "placeholder — replace with real feed entries",
+      "note":   "Schema demonstration entry only. Not a real hash."
+    },
+    {
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "md5":    "dddddddddddddddddddddddddddddddd",
+      "name":   "DUMMY-Sample-B",
+      "family": "DummyFamily",
+      "severity": "High",
+      "source": "placeholder — replace with real feed entries",
+      "note":   "Schema demonstration entry only. Not a real hash."
+    }
+  ]
+}
